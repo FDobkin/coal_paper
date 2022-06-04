@@ -1,0 +1,49 @@
+clear all
+
+*Import table
+import delimited "https://download.bls.gov/pub/time.series/la/la.data.64.County"
+
+*save
+tempfile table
+save `table'
+
+*clear
+clear
+
+*Import crosswalk
+import delimited "https://download.bls.gov/pub/time.series/la/la.series"
+
+*merge on series_id
+merge 1:m series_id using `table'
+keep if _merge == 3
+
+*Keep valuable variables
+keep series_title year period value 
+
+*Generate county
+split series_title, parse(":")
+split series_title2, parse(",")
+rename series_title21 county
+
+*Generate state
+split series_title22, parse ("(")
+rename series_title221 state
+
+*Save
+tempfile table_cw
+save `table_cw'
+
+*Clear
+clear
+
+*Import FIPS crosswalk
+import delimited "https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv"
+
+*Rename
+rename county_name county_fips_master
+drop state
+rename state_abbr state
+
+*Merge
+merge 1:m county state using `table_cw'
+drop if _merge == 1
