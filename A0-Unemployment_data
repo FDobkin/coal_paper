@@ -46,4 +46,4 @@ rename state_abbr state
 
 *Merge
 merge 1:m county state using `table_cw'
-drop if _merge == 1
+
