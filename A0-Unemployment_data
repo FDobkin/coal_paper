@@ -13,37 +13,62 @@ clear
 *Import crosswalk
 import delimited "https://download.bls.gov/pub/time.series/la/la.series"
 
-*merge on series_id
-merge 1:m series_id using `table'
-keep if _merge == 3
-
-*Keep valuable variables
-keep series_title year period value 
-
 *Generate county
 split series_title, parse(":")
 split series_title2, parse(",")
 rename series_title21 county
 
+
 *Generate state
 split series_title22, parse ("(")
 rename series_title221 state
+replace state = strtrim(state)
 
 *Save
-tempfile table_cw
-save `table_cw'
+tempfile crosswalk
+save `crosswalk'
 
 *Clear
 clear
 
-*Import FIPS crosswalk
+*Create 
 import delimited "https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv"
 
 *Rename
-rename county_name county_fips_master
+drop county
+rename county_name county
+replace county = strtrim(county)
 drop state
 rename state_abbr state
+replace state = strtrim(state)
 
-*Merge
-merge 1:m county state using `table_cw'
+*Identify multiples -- multple is DC. They include a summary level for state and city
+egen tag = tag(state county)
+drop if tag == 0 
+drop tag
 
+*merge
+merge 1:m state county using `crosswalk'
+keep if _merge == 3
+drop _merge  state_name long_name sumlev region division crosswalk region_name division_name
+
+*Merge with table
+merge 1:m series_id using `table'
+keep if _merge == 3
+
+*Keep necessary variables
+drop series_id area_type_code area_code srd_code footnote_codes _merge seasonal series_title series_title2 series_title23 series_title222 series_title22 measure_code begin_period end_period end_year begin_year
+rename series_title metric
+rename period month
+
+*Recode series_title pre-transpose
+gen metric = "employment" if series_title1 == "Employment"
+replace metric = "laborforce" if series_title1 == "Labor Force"
+replace metric = "unemployment" if series_title1 == "Unemployment"
+replace metric = "unemploymentrate" if series_title1 == "Unemployment Rate"
+drop if metric == "employment" | metric == "laborforce" | metric == "unemployment"
+
+*Keep variables
+keep fips year month value 
+gen unemployment_rate = real(value)
+drop value
